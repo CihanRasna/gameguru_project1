@@ -59,12 +59,29 @@ namespace _Project.Scripts
                 .Concat(GetLine(x, y, Vector2Int.up))
                 .ToList();
 
+            var diagonal1 = GetLine(x, y, new Vector2Int(-1, -1))
+                .Concat(new[] { _gridCells[x, y] })
+                .Concat(GetLine(x, y, new Vector2Int(1, 1)))
+                .ToList();
+
+            var diagonal2 = GetLine(x, y, new Vector2Int(-1, 1))
+                .Concat(new[] { _gridCells[x, y] })
+                .Concat(GetLine(x, y, new Vector2Int(1, -1)))
+                .ToList();
+
             if (horizontal.Count >= 3)
                 horizontal.ForEach(c => c.ClearX());
 
             if (vertical.Count >= 3)
                 vertical.ForEach(c => c.ClearX());
+
+            if (diagonal1.Count >= 3)
+                diagonal1.ForEach(c => c.ClearX());
+
+            if (diagonal2.Count >= 3)
+                diagonal2.ForEach(c => c.ClearX());
         }
+
 
         private IEnumerable<GridCell> GetLine(int x, int y, Vector2Int dir)
         {
