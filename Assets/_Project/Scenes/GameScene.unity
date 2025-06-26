@@ -577,7 +577,7 @@ MonoBehaviour:
   cellPrefab: {fileID: 4580559924002762807, guid: 6f13e09ec59378e468d82ca5efae209c,
     type: 3}
   gridParent: {fileID: 1179151281}
-  gridSize: 6
+  gridSize: 5
 --- !u!4 &2105445035
 Transform:
   m_ObjectHideFlags: 0
