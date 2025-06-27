@@ -159,8 +159,8 @@ Camera:
   m_GameObject: {fileID: 330585543}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.39291194, g: 0.20741367, b: 0.5566038, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -574,10 +574,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ce30fa171064c3f8c88d837581cf297, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cellPrefab: {fileID: 4580559924002762807, guid: 6f13e09ec59378e468d82ca5efae209c,
+  cellPrefab: {fileID: 2352435455131948589, guid: 6f13e09ec59378e468d82ca5efae209c,
     type: 3}
   gridParent: {fileID: 1179151281}
-  gridSize: 5
+  gridSize: 20
+  cellSizeOffset: 0.9
+  cellSingleScaleUpTime: 0.5
+  initializeDuration: 1.5
 --- !u!4 &2105445035
 Transform:
   m_ObjectHideFlags: 0

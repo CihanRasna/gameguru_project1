@@ -1,8 +1,8 @@
+using UnityEngine;
+using Zenject;
+
 namespace _Project.Scripts
 {
-    using UnityEngine;
-    using Zenject;
-
     public class InputManager : ITickable
     {
         private Camera _camera;

@@ -1,36 +1,39 @@
+using System.Collections.Generic;
+using System.Linq;
+using DG.Tweening;
+using UnityEngine;
+
 namespace _Project.Scripts
 {
-    using System.Collections.Generic;
-    using System.Linq;
-    using UnityEngine;
-
     public class GridManager
     {
         private GridCell[,] _gridCells;
         private int _gridSize;
         private float _cellSize;
-        private GameObject _cellPrefab;
-        private Transform _parent;
+        private float _cellSizeOffset;
 
-        public void Initialize(int size, GameObject cellPrefab, Transform parent)
+        public void Initialize(int size, float offset,float initializeDuration,float cellSingleScaleUpTime, GridCell cellPrefab, Transform parent)
         {
             _gridSize = size;
-            _cellPrefab = cellPrefab;
-            _parent = parent;
             _gridCells = new GridCell[size, size];
             _cellSize = CalculateCellSize();
+            _cellSizeOffset = offset;
+            const float singleScaleDuration = 0.1f;
+            var maxDelay = initializeDuration - singleScaleDuration;
+            var maxIndex = (_gridSize - 1) * 2f;
+            DOTween.SetTweensCapacity(750, 250);
 
             for (var y = 0; y < _gridSize; y++)
             {
                 for (var x = 0; x < _gridSize; x++)
                 {
+                    var delay = ((x + y) / maxIndex) * maxDelay;
                     var cellGo = Object.Instantiate(cellPrefab, parent);
                     cellGo.transform.localPosition = new Vector3(x * _cellSize, y * _cellSize, 0);
-                    cellGo.transform.localScale = Vector3.one * _cellSize;
+                    cellGo.transform.DOScale(Vector3.one * _cellSize * _cellSizeOffset, cellSingleScaleUpTime).SetDelay(delay).SetEase(Ease.OutBack);
 
-                    var cell = cellGo.GetComponent<GridCell>();
-                    cell.Initialize(x, y, this);
-                    _gridCells[x, y] = cell;
+                    cellGo.Initialize(x, y);
+                    _gridCells[x, y] = cellGo;
                 }
             }
 
@@ -44,6 +47,10 @@ namespace _Project.Scripts
             {
                 cell.PlaceX();
                 CheckMatches(x, y);
+            }
+            else
+            {
+                cell.Shake();
             }
         }
 
