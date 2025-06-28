@@ -26,6 +26,7 @@ namespace _Project.Scripts
 
         public void PlaceX()
         {
+            DOTween.Kill(GetInstanceID()+"_ClearXSeq",true);
             HasX = true;
             xMark.SetActive(true);
 
@@ -35,12 +36,13 @@ namespace _Project.Scripts
 
         public void ClearX()
         {
+            HasX = false;
+            DOTween.Kill(GetInstanceID()+"_ClearXSeq",true);
             var seq = DOTween.Sequence().SetId(GetInstanceID()+"_ClearXSeq");
             seq.Join(transform.DOScale(Vector3.one * 0.15f, 0.25f).SetLoops(2, LoopType.Yoyo).SetRelative());
             seq.Append(xMark.transform.DOScale(Vector3.zero, 0.25f));
             seq.OnComplete(() =>
             {
-                HasX = false;
                 xMark.SetActive(false);
             });
         }
