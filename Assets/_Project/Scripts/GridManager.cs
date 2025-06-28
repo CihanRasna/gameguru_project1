@@ -12,12 +12,14 @@ namespace _Project.Scripts
         private float _cellSize;
         private float _cellSizeOffset;
 
-        public void Initialize(int size, float offset,float initializeDuration,float cellSingleScaleUpTime, GridCell cellPrefab, Transform parent)
+        public void Initialize(int size, float offset, float initializeDuration, float cellSingleScaleUpTime,
+            GridCell cellPrefab, Transform parent)
         {
             _gridSize = size;
-            _gridCells = new GridCell[size, size];
-            _cellSize = CalculateCellSize();
             _cellSizeOffset = offset;
+            _cellSize = CalculateCellSize(size);
+            _gridCells = new GridCell[size, size];
+
             const float singleScaleDuration = 0.1f;
             var maxDelay = initializeDuration - singleScaleDuration;
             var maxIndex = (_gridSize - 1) * 2f;
@@ -28,25 +30,28 @@ namespace _Project.Scripts
                 for (var x = 0; x < _gridSize; x++)
                 {
                     var delay = ((x + y) / maxIndex) * maxDelay;
-                    var cellGo = Object.Instantiate(cellPrefab, parent);
-                    cellGo.transform.localPosition = new Vector3(x * _cellSize, y * _cellSize, 0);
-                    cellGo.transform.DOScale(Vector3.one * _cellSize * _cellSizeOffset, cellSingleScaleUpTime).SetDelay(delay).SetEase(Ease.OutBack);
+                    var cell = Object.Instantiate(cellPrefab, parent);
+                    cell.transform.localPosition = new Vector3(x * _cellSize, y * _cellSize, 0);
+                    cell.transform.localScale = Vector3.zero;
 
-                    cellGo.Initialize(x, y);
-                    _gridCells[x, y] = cellGo;
+                    var targetScale = Vector3.one * _cellSize * _cellSizeOffset;
+                    cell.transform.DOScale(targetScale, cellSingleScaleUpTime)
+                        .SetDelay(delay).SetEase(Ease.OutBack);
+
+                    cell.Initialize(x, y);
+                    _gridCells[x, y] = cell;
                 }
             }
 
             CenterGridInView();
         }
 
-        public void OnCellClicked(int x, int y)
+        public void OnCellClicked(GridCell cell)
         {
-            var cell = _gridCells[x, y];
             if (!cell.HasX)
             {
                 cell.PlaceX();
-                CheckMatches(x, y);
+                CheckMatches(cell);
             }
             else
             {
@@ -54,8 +59,10 @@ namespace _Project.Scripts
             }
         }
 
-        private void CheckMatches(int x, int y)
+        private void CheckMatches(GridCell cell)
         {
+            var x = cell.X;
+            var y = cell.Y;
             var horizontal = GetLine(x, y, Vector2Int.left)
                 .Concat(new[] { _gridCells[x, y] })
                 .Concat(GetLine(x, y, Vector2Int.right))
@@ -76,19 +83,11 @@ namespace _Project.Scripts
                 .Concat(GetLine(x, y, new Vector2Int(1, -1)))
                 .ToList();
 
-            if (horizontal.Count >= 3)
-                horizontal.ForEach(c => c.ClearX());
-
-            if (vertical.Count >= 3)
-                vertical.ForEach(c => c.ClearX());
-
-            if (diagonal1.Count >= 3)
-                diagonal1.ForEach(c => c.ClearX());
-
-            if (diagonal2.Count >= 3)
-                diagonal2.ForEach(c => c.ClearX());
+            if (horizontal.Count >= 3) horizontal.ForEach(c => c.ClearX());
+            if (vertical.Count >= 3) vertical.ForEach(c => c.ClearX());
+            if (diagonal1.Count >= 3) diagonal1.ForEach(c => c.ClearX());
+            if (diagonal2.Count >= 3) diagonal2.ForEach(c => c.ClearX());
         }
-
 
         private IEnumerable<GridCell> GetLine(int x, int y, Vector2Int dir)
         {
@@ -103,32 +102,98 @@ namespace _Project.Scripts
             }
         }
 
-        private float CalculateCellSize()
+        public void ResizeGrid(int newSize, float cellOffset, float initializeDuration,
+            float cellSingleScaleUpTime, GridCell cellPrefab, Transform parent)
         {
-            if (Camera.main == null) return 0f;
-            var screenHeight = Camera.main.orthographicSize * 2f;
-            var screenWidth = screenHeight * Camera.main.aspect;
-            return Mathf.Min(screenWidth, screenHeight) / _gridSize;
+            var newCellSize = CalculateCellSize(newSize);
+            var newCells = new GridCell[newSize, newSize];
+
+            const float singleScaleDuration = 0.1f;
+            var maxDelay = initializeDuration - singleScaleDuration;
+            var maxIndex = (newSize - 1) * 2f;
+
+            for (var y = 0; y < newSize; y++)
+            {
+                for (var x = 0; x < newSize; x++)
+                {
+                    var delay = ((x + y) / maxIndex) * maxDelay;
+
+                    if (x < _gridSize && y < _gridSize && _gridCells[x, y] != null)
+                    {
+                        var cell = _gridCells[x, y];
+                        cell.transform.SetParent(parent);
+                        cell.transform.localPosition = new Vector3(x * newCellSize, y * newCellSize, 0);
+
+                        var targetScale = Vector3.one * newCellSize * cellOffset;
+                        cell.transform.localScale = targetScale;
+                        cell.transform.DOScale(targetScale, cellSingleScaleUpTime)
+                            .SetDelay(delay).SetEase(Ease.OutBack);
+
+                        newCells[x, y] = cell;
+                    }
+                    else
+                    {
+                        var cell = Object.Instantiate(cellPrefab, parent);
+                        cell.transform.localPosition = new Vector3(x * newCellSize, y * newCellSize, 0);
+                        cell.transform.localScale = Vector3.zero;
+
+                        var targetScale = Vector3.one * newCellSize * cellOffset;
+                        cell.transform.DOScale(targetScale, cellSingleScaleUpTime)
+                            .SetDelay(delay).SetEase(Ease.OutBack);
+
+                        cell.Initialize(x, y);
+                        newCells[x, y] = cell;
+                    }
+                }
+            }
+
+            for (var y = 0; y < _gridSize; y++)
+            {
+                for (var x = 0; x < _gridSize; x++)
+                {
+                    if (x >= newSize || y >= newSize)
+                        Object.Destroy(_gridCells[x, y].gameObject);
+                }
+            }
+
+            _gridSize = newSize;
+            _gridCells = newCells;
+            _cellSize = newCellSize;
+            _cellSizeOffset = cellOffset;
+
+            CenterGridInView(true);
         }
 
-        private void CenterGridInView()
+        private void CenterGridInView(bool lerp = false)
         {
-            var center = new Vector3((_gridSize - 1) * _cellSize / 2f, (_gridSize - 1) * _cellSize / 2f, -10f);
-
             if (Camera.main == null) return;
-            Camera.main.transform.position = center;
+
+            var center = new Vector3((_gridSize * _cellSize) / 2f - (_cellSize / 2f), (_gridSize * _cellSize) / 2f - (_cellSize / 2f), -10f);
 
             var screenRatio = (float)Screen.width / Screen.height;
             var targetSize = (_gridSize * _cellSize) / 2f;
 
-            if (screenRatio >= 1f)
+            if (screenRatio < 1f) targetSize /= screenRatio;
+
+            if (lerp)
             {
-                Camera.main.orthographicSize = targetSize;
+                Camera.main.transform.DOMove(center, 0.5f).SetEase(Ease.InOutQuad).SetDelay(0.25f);
+                Camera.main.DOOrthoSize(targetSize, 0.5f).SetEase(Ease.InOutQuad).SetDelay(0.25f);
             }
             else
             {
-                Camera.main.orthographicSize = targetSize / screenRatio;
+                Camera.main.transform.position = center;
+                Camera.main.orthographicSize = targetSize;
             }
+        }
+
+        private static float CalculateCellSize(int gridSize)
+        {
+            var screenRatio = (float)Screen.width / Screen.height;
+            const float referenceHeight = 20f;
+            var referenceWidth = referenceHeight * screenRatio;
+
+            return Mathf.Min(referenceWidth, referenceHeight) / gridSize;
         }
     }
 }

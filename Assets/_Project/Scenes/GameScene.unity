@@ -577,7 +577,7 @@ MonoBehaviour:
   cellPrefab: {fileID: 2352435455131948589, guid: 6f13e09ec59378e468d82ca5efae209c,
     type: 3}
   gridParent: {fileID: 1179151281}
-  gridSize: 20
+  gridSize: 7
   cellSizeOffset: 0.9
   cellSingleScaleUpTime: 0.5
   initializeDuration: 1.5

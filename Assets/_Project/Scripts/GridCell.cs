@@ -35,18 +35,22 @@ namespace _Project.Scripts
 
         public void ClearX()
         {
-            HasX = false;
-
-            xMark.transform.DOScale(Vector3.zero, 0.25f).OnComplete(() =>
+            var seq = DOTween.Sequence().SetId(GetInstanceID()+"_ClearXSeq");
+            seq.Join(transform.DOScale(Vector3.one * 0.15f, 0.25f).SetLoops(2, LoopType.Yoyo).SetRelative());
+            seq.Append(xMark.transform.DOScale(Vector3.zero, 0.25f));
+            seq.OnComplete(() =>
             {
+                HasX = false;
                 xMark.SetActive(false);
             });
         }
 
         public void Shake()
         {
+            DOTween.Kill(GetInstanceID()+"_Shake",true);
             var shakeSeq = DOTween.Sequence().SetId(GetInstanceID()+"_Shake");
-            
+            shakeSeq.Join(transform.DOShakeRotation(0.1f, Vector3.forward * 15f, 10, 90f, true, ShakeRandomnessMode.Harmonic));
+            shakeSeq.Join(xMark.transform.DOPunchScale(Vector3.one * 0.025f, 0.1f));
         }
     }
 }

@@ -28,7 +28,7 @@ namespace _Project.Scripts
             var ray = _camera.ScreenPointToRay(screenPos);
             if (Physics.Raycast(ray, out var hit) && hit.collider.TryGetComponent(out GridCell cell))
             {
-                _gridManager.OnCellClicked(cell.X, cell.Y);
+                _gridManager.OnCellClicked(cell);
             }
         }
     }
