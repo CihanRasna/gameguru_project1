@@ -12,6 +12,8 @@ namespace _Project.Scripts
         private float _cellSize;
         private float _cellSizeOffset;
 
+        private readonly List<GridCell> _pooledCells = new();
+
         public void Initialize(int size, float offset, float initializeDuration, float cellSingleScaleUpTime,
             GridCell cellPrefab, Transform parent)
         {
@@ -31,11 +33,10 @@ namespace _Project.Scripts
                 for (var x = 0; x < _gridSize; x++)
                 {
                     var delay = ((x + y) / maxIndex) * maxDelay;
-                    var cell = Object.Instantiate(cellPrefab, parent);
+
+                    var cell = GetCell(cellPrefab, parent);
                     cell.transform.localPosition = new Vector3(x * _cellSize, y * _cellSize, 0);
-                    cell.transform.localScale = Vector3.zero;
-                    cell.transform.DOScale(Vector3.one * _cellSize * _cellSizeOffset, cellSingleScaleUpTime)
-                        .SetDelay(delay).SetEase(Ease.OutBack);
+                    AnimateCellScale(cell, delay, _cellSize * _cellSizeOffset, cellSingleScaleUpTime);
 
                     cell.Initialize(x, y);
                     _gridCells[x, y] = cell;
@@ -60,40 +61,48 @@ namespace _Project.Scripts
                 for (var x = 0; x < newSize; x++)
                 {
                     var delay = ((x + y) / maxIndex) * maxDelay;
+                    GridCell cell;
 
-                    if (x < _gridSize && y < _gridSize && _gridCells[x, y])
+                    var isExisting = x < _gridSize && y < _gridSize && _gridCells[x, y];
+
+                    if (isExisting)
                     {
-                        var exist = _gridCells[x, y];
-                        exist.transform.SetParent(parent);
-                        exist.transform.localPosition = new Vector3(x * newCellSize, y * newCellSize, 0);
-                        exist.transform.DOScale(Vector3.one * (newCellSize * offset), scaleUpTime)
-                            .SetDelay(delay).SetEase(Ease.OutBack);
-                        newCells[x, y] = exist;
+                        cell = _gridCells[x, y];
+                        cell.transform.SetParent(parent);
+                        cell.transform.localPosition = new Vector3(x * newCellSize, y * newCellSize, 0);
+                        cell.transform.localScale = Vector3.one * (newCellSize * offset);
                     }
                     else
                     {
-                        var cell = Object.Instantiate(cellPrefab, parent);
-                        cell.transform.localPosition = new Vector3(x * newCellSize, y * newCellSize, 0);
-                        cell.transform.localScale = Vector3.zero;
-                        cell.transform.DOScale(Vector3.one * (newCellSize * offset), scaleUpTime)
-                            .SetDelay(delay).SetEase(Ease.OutBack);
-
+                        cell = GetCell(cellPrefab, parent);
                         cell.Initialize(x, y);
-                        newCells[x, y] = cell;
+                        cell.transform.localPosition = new Vector3(x * newCellSize, y * newCellSize, 0);
+                        AnimateCellScale(cell, delay, newCellSize * offset, scaleUpTime);
                     }
+
+                    cell.gameObject.SetActive(true);
+                    newCells[x, y] = cell;
                 }
             }
-
+            
             for (var y = 0; y < _gridSize; y++)
             {
                 for (var x = 0; x < _gridSize; x++)
                 {
                     if (x >= newSize || y >= newSize)
                     {
-                        Object.Destroy(_gridCells[x, y].gameObject);
+                        var cell = _gridCells[x, y];
+                        cell.transform.DOScale(Vector3.zero, 0.3f)
+                            .SetEase(Ease.InBack)
+                            .OnComplete(() =>
+                            {
+                                cell.gameObject.SetActive(false);
+                            });
+                        _pooledCells.Add(cell);
                     }
                 }
             }
+
 
             _gridCells = newCells;
             _gridSize = newSize;
@@ -101,6 +110,28 @@ namespace _Project.Scripts
             _cellSizeOffset = offset;
 
             CenterGridInView(true);
+        }
+
+
+        private GridCell GetCell(GridCell prefab, Transform parent)
+        {
+            if (_pooledCells.Count > 0)
+            {
+                var cell = _pooledCells[0];
+                cell.DOKill(false);
+                _pooledCells.RemoveAt(0);
+                return cell;
+            }
+
+            return Object.Instantiate(prefab, parent);
+        }
+
+        private void AnimateCellScale(GridCell cell, float delay, float targetScale, float duration)
+        {
+            cell.transform.localScale = Vector3.zero;
+            cell.transform.DOScale(Vector3.one * targetScale, duration)
+                .SetDelay(delay)
+                .SetEase(Ease.OutBack);
         }
 
         public void OnCellClicked(GridCell cell)
@@ -124,17 +155,14 @@ namespace _Project.Scripts
             var vertical = GetMatchLine(x, y, Vector2Int.down, Vector2Int.up);
             var diagonal1 = GetMatchLine(x, y, new Vector2Int(-1, -1), new Vector2Int(1, 1));
             var diagonal2 = GetMatchLine(x, y, new Vector2Int(-1, 1), new Vector2Int(1, -1));
+            var lMatches = GetLMatchesAround(x, y);
 
-            if (horizontal.Count >= 3) foreach (var c in horizontal) toClear.Add(c);
-            if (vertical.Count >= 3) foreach (var c in vertical) toClear.Add(c);
-            if (diagonal1.Count >= 3) foreach (var c in diagonal1) toClear.Add(c);
-            if (diagonal2.Count >= 3) foreach (var c in diagonal2) toClear.Add(c);
-            var lMatches = GetLMatchesAround(x, y); 
-            if (lMatches.Count >= 3) foreach (var c in lMatches) toClear.Add(c);
+            foreach (var c in horizontal.Concat(vertical).Concat(diagonal1).Concat(diagonal2).Concat(lMatches))
+                toClear.Add(c);
 
-            foreach (var c in toClear) c.ClearX();
+            foreach (var c in toClear)
+                c.ClearX();
         }
-
 
         private List<GridCell> GetMatchLine(int x, int y, Vector2Int dir1, Vector2Int dir2)
         {
@@ -196,21 +224,27 @@ namespace _Project.Scripts
 
         private bool IsValidX(Vector2Int pos) => IsValidX(pos.x, pos.y);
 
-        private bool IsValidX(int x, int y) => x >= 0 && x < _gridSize && y >= 0 && y < _gridSize && _gridCells[x, y] && _gridCells[x, y].HasX;
+        private bool IsValidX(int x, int y)
+        {
+            return x >= 0 && x < _gridSize &&
+                   y >= 0 && y < _gridSize &&
+                   _gridCells[x, y] &&
+                   _gridCells[x, y].HasX;
+        }
 
         private float CalculateCellSize()
         {
-            var camera = Camera.main;
-            if (!camera) return 0f;
-            var screenHeight = camera.orthographicSize * 2f;
-            var screenWidth = screenHeight * camera.aspect;
+            var cam = Camera.main;
+            if (!cam) return 0f;
+            var screenHeight = cam.orthographicSize * 2f;
+            var screenWidth = screenHeight * cam.aspect;
             return Mathf.Min(screenWidth, screenHeight) / _gridSize;
         }
 
         private void CenterGridInView(bool lerp = false)
         {
-            var camera = Camera.main;
-            if (!camera) return;
+            var cam = Camera.main;
+            if (!cam) return;
 
             var center = new Vector3((_gridSize - 1) * _cellSize / 2f, (_gridSize - 1) * _cellSize / 2f, -10f);
             var screenRatio = (float)Screen.width / Screen.height;
@@ -220,13 +254,13 @@ namespace _Project.Scripts
 
             if (lerp)
             {
-                camera.transform.DOMove(center, 0.5f).SetEase(Ease.InOutQuad).SetDelay(0.1f);
-                camera.DOOrthoSize(targetSize, 0.5f).SetEase(Ease.InOutQuad).SetDelay(0.1f);
+                cam.transform.DOMove(center, 0.5f).SetEase(Ease.InOutQuad).SetDelay(0.1f);
+                cam.DOOrthoSize(targetSize, 0.5f).SetEase(Ease.InOutQuad).SetDelay(0.1f);
             }
             else
             {
-                camera.transform.position = center;
-                camera.orthographicSize = targetSize;
+                cam.transform.position = center;
+                cam.orthographicSize = targetSize;
             }
         }
     }
